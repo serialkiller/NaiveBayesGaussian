@@ -3,6 +3,7 @@ from AlgorithmImports import *
 from symbol_data import SymbolData
 
 from sklearn.naive_bayes import GaussianNB
+from sklearn.calibration import CalibratedClassifierCV
 
 class GaussianNaiveBayesAlphaModel(AlphaModel):
     def __init__(self):
@@ -66,4 +67,10 @@ class GaussianNaiveBayesAlphaModel(AlphaModel):
                 X = symbol_data.features_by_day.loc[idx]
                 y = symbol_data.labels_by_day.loc[idx]
                 if not X.empty and not y.empty:
-                    symbol_data.model = GaussianNB().fit(X, y)
+                    # Fit GaussianNB with probability calibration (sigmoid) for better p_up quality
+                    try:
+                        model = CalibratedClassifierCV(GaussianNB(), method='sigmoid', cv=3)
+                        symbol_data.model = model.fit(X, y)
+                    except Exception:
+                        # Fallback to plain GaussianNB in case calibration is unavailable
+                        symbol_data.model = GaussianNB().fit(X, y)
