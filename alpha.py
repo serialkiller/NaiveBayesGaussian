@@ -37,8 +37,8 @@ class GaussianNaiveBayesAlphaModel(AlphaModel):
                 except Exception:
                     p_up = 0.0
 
-                # Go long only if probability of UP > 50%
-                if p_up > 0.5:
+                # Go long only if probability of UP > 55%
+                if p_up > 0.55:
                     long_symbols.append((symbol, p_up))
 
         if not long_symbols:
@@ -67,10 +67,25 @@ class GaussianNaiveBayesAlphaModel(AlphaModel):
                 X = symbol_data.features_by_day.loc[idx]
                 y = symbol_data.labels_by_day.loc[idx]
                 if not X.empty and not y.empty:
-                    # Fit GaussianNB with probability calibration (sigmoid) for better p_up quality
+                    # Fit GaussianNB with probability calibration when feasible; otherwise fallback
                     try:
-                        model = CalibratedClassifierCV(GaussianNB(), method='sigmoid', cv=3)
-                        symbol_data.model = model.fit(X, y)
+                        counts = y.value_counts()
+                        if len(counts) >= 2:
+                            # Prefer 3-fold, but degrade to 2-fold if class counts are small
+                            fitted = False
+                            for cv in (3, 2):
+                                if counts.min() >= cv:
+                                    try:
+                                        model = CalibratedClassifierCV(GaussianNB(), method='sigmoid', cv=cv)
+                                        symbol_data.model = model.fit(X, y)
+                                        fitted = True
+                                        break
+                                    except Exception:
+                                        continue
+                            if not fitted:
+                                symbol_data.model = GaussianNB().fit(X, y)
+                        else:
+                            symbol_data.model = GaussianNB().fit(X, y)
                     except Exception:
                         # Fallback to plain GaussianNB in case calibration is unavailable
                         symbol_data.model = GaussianNB().fit(X, y)

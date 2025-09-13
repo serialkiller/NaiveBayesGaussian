@@ -88,7 +88,7 @@ class SymbolData:
         if not self.update_features(time, open_close_return):
             return
         
-        # Update labels
+        # Update labels: label the most recent open that is at least `holding_period` calendar days old
         open_days = self.previous_opens[self.previous_opens.index <= time - timedelta(self.holding_period)]
         if len(open_days) == 0:
             return 

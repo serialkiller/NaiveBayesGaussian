@@ -26,6 +26,8 @@ class GaussianNaiveBayesClassificationAlgorithm(QCAlgorithm):
         self.set_alpha(GaussianNaiveBayesAlphaModel())
         
         self.week = -1
+        # Track monthly rebalance key (YYYYMM)
+        self.last_rebalance_month = -1
         # Confidence-weighted positions with clamps: >=3% of portfolio and <=25% of portfolio per name
         self.set_portfolio_construction(ClampedEqualWeightingPortfolioConstructionModel(
             self.rebalance_func,
@@ -46,9 +48,10 @@ class GaussianNaiveBayesClassificationAlgorithm(QCAlgorithm):
         self.set_benchmark("SPY")
 
     def rebalance_func(self, time):
-        week = self.time.isocalendar()[1]
-        if self.week != week and not self.is_warming_up and self.current_slice.quote_bars.count > 0:
-            self.week = week
+        # Rebalance once per calendar month
+        month_key = self.time.year * 100 + self.time.month
+        if self.last_rebalance_month != month_key and not self.is_warming_up and self.current_slice.quote_bars.count > 0:
+            self.last_rebalance_month = month_key
             return time
         return None
         
