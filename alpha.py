@@ -3,7 +3,6 @@ from AlgorithmImports import *
 from symbol_data import SymbolData
 
 from sklearn.naive_bayes import GaussianNB
-from dateutil.relativedelta import relativedelta
 
 class GaussianNaiveBayesAlphaModel(AlphaModel):
     def __init__(self):
@@ -14,6 +13,9 @@ class GaussianNaiveBayesAlphaModel(AlphaModel):
         week = data.time.isocalendar()[1]
         if self._week == week or data.quote_bars.count == 0:
             return []
+        
+        # Retrain weekly to incorporate latest features/labels
+        self.train()
 
         long_symbols = []
         tradable_symbols = [s for s, sd in self._symbol_data_by_symbol.items() if sd.is_ready]
@@ -23,14 +25,29 @@ class GaussianNaiveBayesAlphaModel(AlphaModel):
             # Predict with only that symbol's most recent features, as a 2D DataFrame
             features = symbol_data.features_by_day.iloc[[-1]]
             if symbol_data.model is not None and len(features.columns) == symbol_data.model.n_features_in_:
-                if symbol_data.model.predict(features)[0] == 1:
-                    long_symbols.append(symbol)
+                # Use class probabilities for confidence-weighted sizing
+                try:
+                    proba = symbol_data.model.predict_proba(features)[0]
+                    classes = list(symbol_data.model.classes_)
+                    if 1 in classes:
+                        p_up = float(proba[classes.index(1)])
+                    else:
+                        p_up = 0.0
+                except Exception:
+                    p_up = 0.0
+
+                # Go long only if probability of UP > 50%
+                if p_up > 0.5:
+                    long_symbols.append((symbol, p_up))
 
         if not long_symbols:
             return []
         self._week = week
-        weight = 1 / len(long_symbols)
-        return [Insight.price(symbol, Expiry.ONE_MONTH, InsightDirection.UP, weight=weight) for symbol in long_symbols]
+        # Emit probability-weighted insights; PCM will normalize/clamp
+        insights = []
+        for symbol, p_up in long_symbols:
+            insights.append(Insight.price(symbol, Expiry.ONE_MONTH, InsightDirection.UP, weight=p_up, confidence=p_up))
+        return insights
 
     def on_securities_changed(self, algorithm, changes):
         for security in changes.added_securities:

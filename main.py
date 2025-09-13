@@ -26,11 +26,11 @@ class GaussianNaiveBayesClassificationAlgorithm(QCAlgorithm):
         self.set_alpha(GaussianNaiveBayesAlphaModel())
         
         self.week = -1
-        # Equal-weight positions with clamps: >=3% of portfolio and <=25% of investable cash
+        # Confidence-weighted positions with clamps: >=3% of portfolio and <=25% of portfolio per name
         self.set_portfolio_construction(ClampedEqualWeightingPortfolioConstructionModel(
             self.rebalance_func,
             min_weight=0.03,
-            max_cash_fraction=0.25
+            max_weight=0.25
         ))
 
         self.set_risk_management(NullRiskManagementModel())
