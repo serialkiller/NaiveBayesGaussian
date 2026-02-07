@@ -18,7 +18,7 @@ class BigTechUniverseSelectionModel(FundamentalUniverseSelectionModel):
         self.week = -1
         self.hours = None
 
-    def select(self, fundamental):
+    def select(self, time, fundamental):
         tech_stocks = [ f for f in fundamental if f.asset_classification.morningstar_sector_code == MorningstarSectorCode.TECHNOLOGY ]
         sorted_by_market_cap = sorted(tech_stocks, key=lambda x: x.market_cap, reverse=True)
         return [ x.symbol for x in sorted_by_market_cap[:self.universe_size] ]

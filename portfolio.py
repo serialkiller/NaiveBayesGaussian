@@ -14,7 +14,7 @@ class ClampedEqualWeightingPortfolioConstructionModel(EqualWeightingPortfolioCon
     - If the sum of targets exceeds 100% after clamping, targets are scaled down proportionally.
     """
 
-    def __init__(self, rebalance=None, min_weight: float = 0.03, max_weight: float = 0.25):
+    def __init__(self, rebalance=None, min_weight: float = 0.03, max_weight: float = 0.5):
         super().__init__(rebalance)
         self.min_weight = float(min_weight)
         self.max_weight = float(max_weight)

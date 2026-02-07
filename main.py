@@ -13,7 +13,7 @@ class GaussianNaiveBayesClassificationAlgorithm(QCAlgorithm):
 
     def initialize(self):
         self.set_end_date(datetime.now())
-        self.set_start_date(self.end_date - timedelta(10*365))
+        self.set_start_date(self.end_date - timedelta(7*365/12))
         self.set_cash(50000)
 
         self.set_brokerage_model(BrokerageName.INTERACTIVE_BROKERS_BROKERAGE, AccountType.MARGIN)
@@ -44,8 +44,8 @@ class GaussianNaiveBayesClassificationAlgorithm(QCAlgorithm):
 
 
         self.set_warm_up(timedelta(10))
-        'Set the Benchmark to be SPY '
-        self.set_benchmark("SPY")
+
+        self.setup_performance_chart()
 
     def rebalance_func(self, time):
         # Rebalance once per calendar month
@@ -71,3 +71,39 @@ class GaussianNaiveBayesClassificationAlgorithm(QCAlgorithm):
             if self.is_market_open(symbol):
                 self.liquidate(symbol, tag="Holding from previous deployment that's no longer desired")
                 self.undesired_symbols_from_previous_deployment.remove(symbol)
+        
+        if self.benchmark_initial_price is None:
+            benchmark_security = self.securities.get(self.benchmark_symbol)
+            if benchmark_security and benchmark_security.price > 0:
+                self.benchmark_initial_price = benchmark_security.price
+
+    def on_end_of_day(self):
+        if self.is_warming_up or self.benchmark_initial_price is None or self.initial_portfolio_value == 0:
+            return
+
+        self.update_performance_chart()
+
+    def setup_performance_chart(self):
+        self.benchmark_ticker = "QQQ"
+        self.set_benchmark(self.benchmark_ticker)
+        # Subscribe at minute resolution so execution models can consolidate as needed
+        self.benchmark_symbol = self.add_equity(self.benchmark_ticker, Resolution.MINUTE).symbol
+
+        self.performance_chart = Chart("Performance")
+        self.performance_chart.add_series(Series("Strategy Equity", SeriesType.Line))
+        self.performance_chart.add_series(Series("Benchmark", SeriesType.Line))
+        self.add_chart(self.performance_chart)
+
+        self.initial_portfolio_value = self.portfolio.total_portfolio_value
+        self.benchmark_initial_price = None
+
+    def update_performance_chart(self):
+        benchmark_security = self.securities.get(self.benchmark_symbol)
+        if benchmark_security is None or benchmark_security.price <= 0:
+            return
+
+        equity_return = self.portfolio.total_portfolio_value / self.initial_portfolio_value - 1
+        benchmark_return = benchmark_security.price / self.benchmark_initial_price - 1
+
+        self.plot("Performance", "Strategy Equity", equity_return)
+        self.plot("Performance", "Benchmark", benchmark_return)
